@@ -2,33 +2,19 @@ import numpy as np
 import matplotlib.pyplot as plt
 from collections import Counter
 
-
-#读取原始的加速度数据
-def ReadAccData(fileName):
-    retValue = []
-    with open(fileName) as file:
-        for line in file.readlines():
-            tpLine = line.strip()
-            tpLine = line.strip().split(':')
-            tpLine = tpLine[1].split(' ')
-            tpLine = list(map(float,tpLine[1:]))
-            magnitude = np.sqrt(sum([c*c for c in tpLine]))     #计算平方和
-            tpLine.append(magnitude)     #模值
-            retValue.append(tpLine)       #返回完整的数据
-            #retValue.append(magnitude)    #只返回三轴平方和
-    return retValue
-
-
 #获取各种手环与传感器之间对应的数据点
 #refTime: 手环各种睡眠状态的起始时间
 #refFileName：处理后的数据文件名称
 def CorTimeSpan(refTime, refFileName):
     timeIndex = []
+    ret_magnitude = []
     with open(refFileName) as f:       #从文件中提取时间信息
         for line in f.readlines():
-            spans = line.strip().split('   ')
+            spans = line.strip().split('\t')
             timeIndex.append(spans[0])
-
+            ret_magnitude.append(float(spans[-1]))
+    
+    
     ret_index = []
     length = len(timeIndex)
     findIndex = 0
@@ -40,9 +26,8 @@ def CorTimeSpan(refTime, refFileName):
                 findIndex = j
                 break
     ret_index.append(length)
-    return ret_index
+    return ret_index, ret_magnitude
     
-
 
 #对原始数据，根据峰值的交替次数判断
 # 算法流程：
@@ -80,7 +65,8 @@ def StatisticalMethodMean(rawData):
         else:
             ret_value.append(1)
             # print('else    scoph_mean: ',scoph_mean, '  scoph_std: ', scoph_std)
-    
+                
+                
     #将状态 1 前后相邻的状态也置为 1
     # light_sleep = ret_value.copy()
     # gap_flag = True
@@ -127,7 +113,6 @@ def StatisticalMethodMean(rawData):
             if deep_count == 0:
                 flag = True
     
-    
     #对状态2进行处理， 处理后的结果放到mod_aweak中
     mod_aweak = mod_deep.copy()
     tp_count = 0
@@ -137,7 +122,7 @@ def StatisticalMethodMean(rawData):
         if aweak_flag:
             tp_count = aweak_length
             aweak_count = mod_aweak[i:i+aweak_length].count(2)
-            if aweak_count >= (int(aweak_length/2) + 1):     #超过aweak_length一半的状态为2 则该区间判定为2
+            if aweak_count >= (int(aweak_length/2) + 1):            #超过aweak_length一半的状态为2 则该区间判定为2
                 mod_aweak[i:i+aweak_length] = np.ones(aweak_length, int)*2
                 aweak_flag = False
             else:                  #少于一半，则将该区间中的 2 都修改为状态 1
@@ -149,6 +134,7 @@ def StatisticalMethodMean(rawData):
             tp_count -= 1
             if tp_count == 0:            #跳过aweak_length次的处理
                 aweak_flag = True
+
                 
       
     #对距离较近的 离散的light-sleep状态进行合并        
@@ -190,26 +176,57 @@ def StatisticalMethodMean(rawData):
     return ret_value, mod_light
 
     
+ 
+#贯众手环睡眠分类结果
+# 12.26的数据
+# refTime = ['22:10:00', '23:18:00', '23:32:00', '23:48:00', '00:28:00', '01:28:00', '01:46:00', '02:08:00', 
+# '02:28:00', '03:48:00', '04:06:00', '05:14:00', '05:36:00', '05:52:00', '06:02:00', '06:04:00', 
+# '06:14:00', '06:16:00', '06:32:00'] 
+
+# 12.29的数据
+# refTime = ['23:24:00', '23:36:00', '00:10:00', '00:34:00', '01:14:00', '02:46:00', '03:36:00', 
+# '04:28:00', '04:42:00', '05:00:00', '05:10:00']
+
+# 12.30的数据
+# refTime = ['00:46:00', '00:58:00', '01:10:00', '02:00:00', '02:16:00', '02:18:00', '03:08:00',
+# '03:38:00', '03:48:00', '03:50:00', '04:50:00', '05:14:00', '05:24:00', '06:00:00', '06:14:00', '06:16:00',
+# '06:34:00', '07:19:00']
+
+# 01.02的数据
+# refTime = ['22:54:00', '23:06:00', '23:40:00', '00:26:00', '01:44:00', '01:46:00', '02:00:00', '02:04:00', 
+# '02:24:00', '02:26:00', '02:52:00', '03:10:00', '03:20:00', '04:02:00', '04:16:00', '04:24:00', '04:44:00', 
+# '05:08:00', '05:28:00']
+
+# 01.03的数据
+refTime = ['22:33:00', '22:43:00', '23:26:00', '00:48:00', '01:04:00', '01:26:00', '01:36:00', '01:59:00', '02:24:00', '02:50:00', '03:10:00', 
+'03:34:00', '03:48:00', '04:00:00', '04:19:00', '04:30:00', '05:00:00', '05:58:00', '06:10:00', '06:21:00', '06:33:00', '06:34:00']
+
+# 01.04的数据  贯众手环
+# refTime = ['23:04:00', '23:42:00', '00:26:00', '00:28:00', '00:42:00', '00:44:00', '02:00:00', '02:58:00', '03:08:00', 
+# '03:10:00', '03:20:00', '03:22:00', '03:34:00', '03:36:00', '04:00:00', '05:02:00', '05:24:00', '06:22:00', '06:34:00', '07:02:00'] 
+
+# 01.04的数据  bong手环
+# refTime = ['23:19:00', '23:48:00', '00:25:00', '00:54:00', '01:16:00', '01:29:00', '02:08:00', '02:45:00', 
+# '03:07:00', '03:20:00', '04:01:00', '04:31:00', '04:35:00', '04:47:00', '05:39:00', '06:27:00'] 
+
+# 01.04的数据  小米手环
+# refTime = ['23:06:00', '23:19:00', '23:29:00', '23:40:00', '00:20:00', '00:49:00', '01:11:00', '02:33:00', '02:45:00', '03:35:00', 
+# '03:57:00', '05:08:00', '05:30:00', '06:15:00', '06:32:00', '06:49:00', '06:59:00', '07:15:00']
+  
 
 #绘制曲线图
 fig = plt.figure()
 ax = fig.add_subplot(111)
-fileName = 'sleep_20170104_2258'
-filePostfix = '.log'
+fileName = 'sleep_20170103_2224_ref.log'
 
-retValue = ReadAccData(fileName+filePostfix)
-mag = np.mat(retValue)     #转换成mat才能 使用[:, -1]取其中某一列数据
-rawData = mag[:, -1].flatten().A[0]
+time, rawData = CorTimeSpan(refTime, fileName)
 
+ori_value, statis_value = StatisticalMethodMean(np.array(rawData))
+ax.plot(rawData)
 
-ori_value, statis_value = StatisticalMethodMean(rawData)      
-ax.plot(rawData, label='original')
+# print('total deep-sleep minites: ', statis_value.count(0)*4)
+# print('total light-sleep minites: ', statis_value.count(1)*4)
 
-# statis_count = Counter(statis_value)
-# statis_common = statis_count.most_common()
-# print(statis_value)
-# print(ori_value)
-# print(statis_value)
 
 #原始分类结果
 # aweak_data = np.mat([np.ones(min)*8 if v==2 else np.zeros(min) for v in ori_value])
@@ -236,36 +253,6 @@ aweak_data = aweak_data.flatten().A[0]
 ax.plot(aweak_data, color='black', linewidth=2, label='my_aweak')
 
 
-#贯众手环睡眠分类结果
-# 12.26的数据
-# refTime = ['22:10:00', '23:18:00', '23:32:00', '23:48:00', '00:28:00', '01:28:00', '01:46:00', '02:08:00', 
-# '02:28:00', '03:48:00', '04:06:00', '05:14:00', '05:36:00', '05:52:00', '06:02:00', '06:04:00', 
-# '06:14:00', '06:16:00', '06:32:00'] 
-
-# 12.29的数据
-# refTime = ['23:24:00', '23:36:00', '00:10:00', '00:34:00', '01:14:00', '02:46:00', '03:36:00', 
-# '04:28:00', '04:42:00', '05:00:00', '05:10:00']
-
-# 12.30的数据
-# refTime = ['00:46:00', '00:58:00', '01:10:00', '02:00:00', '02:16:00', '02:18:00', '03:08:00',
-# '03:38:00', '03:48:00', '03:50:00', '04:50:00', '05:14:00', '05:24:00', '06:00:00', '06:14:00', '06:16:00',
-# '06:34:00', '07:19:00']
-
-# 01.02的数据
-# refTime = ['22:54:00', '23:06:00', '23:40:00', '00:26:00', '01:44:00', '01:46:00', '02:00:00', '02:04:00', 
-# '02:24:00', '02:26:00', '02:52:00', '03:10:00', '03:20:00', '04:02:00', '04:16:00', '04:24:00', '04:44:00', 
-# '05:08:00', '05:28:00']
-
-# 01.04的数据  贯众手环
-# refTime = ['23:04:00', '23:42:00', '00:26:00', '00:28:00', '00:42:00', '00:44:00', '02:00:00', '02:58:00', '03:08:00', 
-# '03:10:00', '03:20:00', '03:22:00', '03:34:00', '03:36:00', '04:00:00', '05:02:00', '05:24:00', '06:22:00', '06:34:00', '07:02:00'] 
-
-# 01.04的数据  bong手环
-refTime = ['23:19:00', '23:48:00', '00:25:00', '00:54:00', '01:16:00', '01:29:00', '02:08:00', '02:45:00', 
-'03:07:00', '03:20:00', '04:01:00', '04:31:00', '04:35:00', '04:47:00', '05:39:00', '06:27:00']
-
-
-time = CorTimeSpan(refTime, fileName+'_ref'+filePostfix)
 guanzhong_light = []
 guanzhong_deep = []
 guanzhong_light.extend(np.zeros(time[0]))
@@ -278,8 +265,8 @@ for i in range(len(time)-1):
         guanzhong_deep.extend(np.ones(time[i+1]-time[i], int)*15)
         guanzhong_light.extend(np.zeros(time[i+1]-time[i]))
         
-ax.plot(guanzhong_light, color='green', linewidth=2, label='guanzhong_light')
-ax.plot(guanzhong_deep, color='red', linewidth=2, label='guanzhong_deep')
+ax.plot(guanzhong_light, color='green', linewidth=3, label='ref_light')
+ax.plot(guanzhong_deep, color='red', linewidth=3, label='ref_deep')
 
 
 plt.legend(frameon=False)
